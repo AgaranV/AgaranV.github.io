@@ -31,34 +31,45 @@ function setModelURL(url) {
  * Initialize the application
  */
 async function init() {
-    const modelURL = URL + "model.json";
-    const metadataURL = URL + "metadata.json";
-
-    const video = document.getElementById('instructionVideo');
-    video.volume = 0.4;
-
     try {
+        // First check if we have webcam access
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        stream.getTracks().forEach(track => track.stop()); // Stop the test stream
+
+        const modelURL = URL + "model.json";
+        const metadataURL = URL + "metadata.json";
+
+        const video = document.getElementById('instructionVideo');
+        video.volume = 0.4;
+
+        // Load the model
         model = await tmPose.load(modelURL, metadataURL);
         maxPredictions = model.getTotalClasses();
 
+        // Setup webcam
         const width = 600;
         const height = 600;
         const flip = true;
         webcam = new tmPose.Webcam(width, height, flip);
         await webcam.setup();
         await webcam.play();
-        window.requestAnimationFrame(loop);
 
+        // Setup canvas and labels
         const canvas = document.getElementById("canvas");
         canvas.width = width;
         canvas.height = height;
         ctx = canvas.getContext("2d");
         labelContainer = document.getElementById("label-container");
+        labelContainer.innerHTML = ''; // Clear existing content
         for (let i = 0; i < maxPredictions; i++) {
             labelContainer.appendChild(document.createElement("div"));
         }
+
+        // Start the animation loop
+        window.requestAnimationFrame(loop);
     } catch (error) {
-        console.error("Error initializing model:", error);
+        console.error("Error:", error);
+        alert("Error accessing webcam or loading model. Please ensure you've granted camera permissions and try again.");
     }
 }
 
@@ -118,27 +129,35 @@ function checkPose(prediction, video) {
 
         switch(poseNumber) {
             case '1':
-                if (time >= 9.5 && time <= 13.0 && !poseState.triggered) {
+                if (time >= 0.9 && time <= 3.0 && !poseState.triggered) {
                     triggerExplosion(poseState);
                 }
                 break;
             case '2':
-                if (time >= 15.5 && time <= 19.5 && !poseState.triggered) {
+                if (time >= 5.5 && time <= 7.5 && !poseState.triggered) {
                     triggerExplosion(poseState);
                 }
                 break;
             case '3':
-                if (time >= 21.0 && time <= 25.0 && !poseState.triggered) {
-                    triggerExplosion(poseState);
+                if ((time >= 11.5 && time <= 13.0 && !poseState.firstWindowTriggered) ||
+                    (time >= 17.5 && time <= 19.5 && !poseState.secondWindowTriggered)) {
+                    if (time <= 13.0) {
+                        poseState.firstWindowTriggered = true;
+                    } else {
+                        poseState.secondWindowTriggered = true;
+                    }
+                    explosionActive = true;
+                    playExplosionSound();
+                    setTimeout(() => { explosionActive = false; }, 300);
                 }
                 break;
             case '4':
-                if (time >= 40.0 && time <= 44.5 && !poseState.triggered) {
+                if (time >= 15.5 && time <= 16.6 && !poseState.triggered) {
                     triggerExplosion(poseState);
                 }
                 break;
             case '5':
-                if (time >= 64.0 && !poseState.triggered) {
+                if (time >= 19.5 && !poseState.triggered) {
                     triggerExplosion(poseState);
                 }
                 break;
